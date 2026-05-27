@@ -9,10 +9,12 @@ from dqgate.models import Finding, ReviewReport, Severity
 
 
 def _severity_label(severity: Severity) -> str:
+    """Format a severity enum value for display (e.g. ``ERROR``)."""
     return severity.value.upper()
 
 
 def format_finding(finding: Finding) -> str:
+    """Format a single finding as an indented terminal line."""
     location = f" (line {finding.line})" if finding.line is not None else ""
     return (
         f"  [{_severity_label(finding.severity)}] "
@@ -21,6 +23,7 @@ def format_finding(finding: Finding) -> str:
 
 
 def format_report(report: ReviewReport) -> str:
+    """Build the full structured review report as a multi-line string."""
     lines = [
         "SQL Review Report",
         "=" * 40,
@@ -58,5 +61,6 @@ def format_report(report: ReviewReport) -> str:
 
 
 def print_report(report: ReviewReport, stream: TextIO | None = None) -> None:
+    """Print a formatted review report to ``stream`` (stdout by default)."""
     out = sys.stdout if stream is None else stream
     print(format_report(report), file=out)

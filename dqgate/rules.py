@@ -1,4 +1,14 @@
-"""Rule-based static checks for SQL text (no database connection)."""
+"""Rule-based static checks for SQL text (no database connection).
+
+V1 design notes (read before changing rules):
+
+- Checks are **regex/heuristic**, not a full SQL parser. No sqlglot/sqlparse dependency.
+- Statement boundaries are approximated by splitting on ``;``. Semicolons inside
+  string literals or complex scripts may be mis-split.
+- For DELETE/UPDATE rules, a ``WHERE`` anywhere in the same ``;``-delimited
+  segment counts as present (comments stripped first via ``_strip_comments``).
+- Line numbers refer to positions in the original file text, not a parsed AST.
+"""
 
 from __future__ import annotations
 
@@ -7,10 +17,12 @@ from collections.abc import Callable
 
 from dqgate.models import Finding, Severity
 
+# Callable that inspects SQL text and returns zero or more findings.
 RuleFn = Callable[[str], list[Finding]]
 
 
 def _line_number(sql: str, position: int) -> int:
+    """Return the 1-based line number for a character index in ``sql``."""
     return sql[:position].count("\n") + 1
 
 
@@ -22,6 +34,7 @@ def _strip_comments(sql: str) -> str:
 
 
 def check_select_star(sql: str) -> list[Finding]:
+    """Flag ``SELECT *`` and wildcard columns in select lists."""
     findings: list[Finding] = []
     patterns = [
         (re.compile(r"\bSELECT\s+(?:DISTINCT\s+)?\*", re.IGNORECASE), "SELECT *"),
@@ -41,6 +54,7 @@ def check_select_star(sql: str) -> list[Finding]:
 
 
 def _keyword_line(sql: str, segment: str, segment_offset: int, keyword: str) -> int:
+    """Return the line number of ``keyword`` within a semicolon-delimited SQL segment."""
     match = re.search(rf"\b{keyword}\b", segment, re.IGNORECASE)
     if match is None:
         return _line_number(sql, segment_offset)
@@ -48,7 +62,9 @@ def _keyword_line(sql: str, segment: str, segment_offset: int, keyword: str) -> 
 
 
 def check_delete_without_where(sql: str) -> list[Finding]:
+    """Flag ``DELETE`` statements that omit a ``WHERE`` clause."""
     findings: list[Finding] = []
+    # Walk semicolon-separated segments (see module docstring for limitations).
     offset = 0
     for part in sql.split(";"):
         stmt = _strip_comments(part).strip()
@@ -74,7 +90,9 @@ def check_delete_without_where(sql: str) -> list[Finding]:
 
 
 def check_update_without_where(sql: str) -> list[Finding]:
+    """Flag ``UPDATE`` statements that omit a ``WHERE`` clause."""
     findings: list[Finding] = []
+    # Same segment walk as check_delete_without_where.
     offset = 0
     for part in sql.split(";"):
         stmt = _strip_comments(part).strip()
@@ -100,6 +118,7 @@ def check_update_without_where(sql: str) -> list[Finding]:
 
 
 def check_window_function(sql: str) -> list[Finding]:
+    """Report window functions (``OVER (...)``) for manual review."""
     findings: list[Finding] = []
     pattern = re.compile(r"\bOVER\s*\(", re.IGNORECASE)
     for match in pattern.finditer(sql):
@@ -115,6 +134,7 @@ def check_window_function(sql: str) -> list[Finding]:
 
 
 def check_truncate(sql: str) -> list[Finding]:
+    """Flag ``TRUNCATE`` statements that remove all table rows."""
     findings: list[Finding] = []
     pattern = re.compile(r"\bTRUNCATE\s+(?:TABLE\s+)?\w+", re.IGNORECASE)
     for match in pattern.finditer(sql):
@@ -129,6 +149,7 @@ def check_truncate(sql: str) -> list[Finding]:
     return findings
 
 
+# Rules executed by default in V1 (order preserved for stable reporting).
 DEFAULT_RULES: list[RuleFn] = [
     check_select_star,
     check_delete_without_where,

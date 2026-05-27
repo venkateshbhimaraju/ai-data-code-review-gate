@@ -12,6 +12,7 @@ from dqgate.reviewer import RuleBasedReviewer
 
 
 def _build_parser() -> argparse.ArgumentParser:
+    """Configure the top-level CLI parser and subcommands."""
     parser = argparse.ArgumentParser(
         prog="dqgate",
         description="Local-first SQL quality gate for data engineering.",
@@ -37,6 +38,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def _cmd_review(sql_file: Path) -> int:
+    """Run static review on ``sql_file`` and print the report; return an exit code."""
     if not sql_file.exists():
         print(f"error: file not found: {sql_file}", file=sys.stderr)
         return 2
@@ -50,6 +52,7 @@ def _cmd_review(sql_file: Path) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Parse CLI arguments and dispatch to the requested subcommand."""
     parser = _build_parser()
     args = parser.parse_args(argv)
 

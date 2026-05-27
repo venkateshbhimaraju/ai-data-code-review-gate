@@ -10,6 +10,7 @@ from dqgate.rules import (
 
 
 def test_select_star_detected():
+    """``SELECT *`` produces a select_star warning."""
     sql = "SELECT * FROM t;"
     findings = check_select_star(sql)
     assert len(findings) == 1
@@ -17,6 +18,7 @@ def test_select_star_detected():
 
 
 def test_delete_without_where_is_error():
+    """Bare ``DELETE`` produces a delete_without_where error."""
     sql = "DELETE FROM staging_events;"
     findings = check_delete_without_where(sql)
     assert len(findings) == 1
@@ -24,11 +26,13 @@ def test_delete_without_where_is_error():
 
 
 def test_delete_with_where_passes():
+    """``DELETE`` with ``WHERE`` produces no findings."""
     sql = "DELETE FROM staging_events WHERE id = 1;"
     assert check_delete_without_where(sql) == []
 
 
 def test_update_without_where_is_error():
+    """Bare ``UPDATE`` produces an update_without_where error."""
     sql = "UPDATE users SET active = false;"
     findings = check_update_without_where(sql)
     assert len(findings) == 1
@@ -36,6 +40,7 @@ def test_update_without_where_is_error():
 
 
 def test_window_function_info():
+    """``OVER (...)`` produces a window_function info finding."""
     sql = "SELECT ROW_NUMBER() OVER (ORDER BY x) AS rn FROM t;"
     findings = check_window_function(sql)
     assert len(findings) == 1
@@ -43,6 +48,7 @@ def test_window_function_info():
 
 
 def test_sample_query_has_expected_findings():
+    """Combined SQL triggers select_star, delete_without_where, and window_function."""
     sql = """
 SELECT * FROM raw_events;
 DELETE FROM staging_events;
